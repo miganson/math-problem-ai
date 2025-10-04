@@ -1,0 +1,13 @@
+# dependencies / builds
+node_modules/
+.next/
+dist/
+out/
+coverage/
+.vercel/
+
+# env
+.env*
+
+# misc
+.DS_Store
