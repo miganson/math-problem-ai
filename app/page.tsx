@@ -394,9 +394,9 @@ export default function Home() {
             )}
 
             {showSteps && steps.length > 0 && (
-              <ol className="mt-3 list-decimal space-y-1 rounded-lg bg-indigo-50 p-4 text-sm text-indigo-900">
+              <ol className="mt-3 list-decimal space-y-1 rounded-lg bg-indigo-50 p-4 text-sm text-indigo-900 ">
                 {steps.map((s, i) => (
-                  <li key={i}>{s}</li>
+                  <li className="m-2" key={i}>{s}</li>
                 ))}
               </ol>
             )}
