@@ -3,8 +3,8 @@ import { NextResponse } from "next/server";
 import { getSupabase } from "../../../../lib/supabaseClient";
 
 export const runtime = "nodejs";
-export const dynamic = "force-dynamic";   // ⬅️ prevent prerender
-export const revalidate = 0;              // ⬅️ no ISR
+export const dynamic = "force-dynamic"; // ⬅️ prevent prerender
+export const revalidate = 0; // ⬅️ no ISR
 export const fetchCache = "force-no-store";
 
 const LAST_N_FOR_SCORE = 100;
@@ -25,7 +25,7 @@ export async function GET(req: Request) {
   const { data, error, count } = await supabase
     .from("math_problem_sessions")
     .select(
-      "id, created_at, problem_text, difficulty, op_type, math_problem_submissions ( is_correct, created_at )",
+      "id, created_at, problem_text, difficulty, op_type, topic, math_problem_submissions ( is_correct, created_at )",
       { count: "exact" }
     )
     .order("created_at", { ascending: false })
@@ -47,6 +47,7 @@ export async function GET(req: Request) {
       problem_text: s.problem_text as string,
       difficulty: s.difficulty ?? null,
       opType: s.op_type ?? null,
+      topic: s.topic ?? null,
       latest_correct:
         latest && typeof latest.is_correct === "boolean"
           ? !!latest.is_correct

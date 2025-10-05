@@ -5,20 +5,45 @@ import { z } from "zod";
 import { getSupabase } from "../../../lib/supabaseClient";
 
 export const runtime = "nodejs";
-export const dynamic = "force-dynamic"; // ⬅️ add
+export const dynamic = "force-dynamic";
 export const revalidate = 0;
 export const fetchCache = "force-no-store";
+
+type Topic =
+  | "any"
+  | "fractions-division" // P5 Fractions: division without calculator
+  | "percentage" // P5 Percentage: whole from part; % inc/dec
+  | "ratio" // P5 Ratio: a:b, a:b:c, equivalent, divide in ratio
+  | "rate" // P5 Rate
+  | "area-triangle" // P5 Area of triangle / composites
+  | "volume-cube-cuboid" // P5 Volume relationships
+  | "angles" // P5 angles at point/line/vertically opposite
+  | "triangles" // P5 properties & angle sum
+  | "quadrilaterals"; // P5 parallelogram, rhombus, trapezium
 
 const Body = z.object({
   difficulty: z.enum(["easy", "medium", "hard"]).default("medium"),
   opType: z.enum(["any", "add", "sub", "mul", "div"]).default("any"),
+  topic: z
+    .enum([
+      "any",
+      "fractions-division",
+      "percentage",
+      "ratio",
+      "rate",
+      "area-triangle",
+      "volume-cube-cuboid",
+      "angles",
+      "triangles",
+      "quadrilaterals",
+    ])
+    .default("any"),
 });
 
 const Problem = z.object({
   problem_text: z.string().min(10),
   final_answer: z.coerce.number(),
   hint: z.string().min(5).optional(),
-  // allow array OR newline string; coerce to array
   steps: z.preprocess(
     (v) => (typeof v === "string" ? v.split(/\s*\n+\s*/).filter(Boolean) : v),
     z.array(z.string()).min(1).max(10).optional()
@@ -52,51 +77,83 @@ const unfence = (s: string) =>
     .replace(/^```(?:json)?\s*/i, "")
     .replace(/\s*```$/i, "")
     .trim();
-
 const normalize = (s: string) =>
   s
     .toLowerCase()
-    .normalize("NFKD") // optional: split accents
-    .replace(/[\u0300-\u036f]/g, "") // optional: drop diacritics
-    .replace(/\d+/g, "NUM") // ignore exact numbers
-    .replace(/[^a-z\s]/g, " ") // strip punctuation/non-letters (ASCII)
-    .replace(/\s+/g, " ") // collapse spaces
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\d+/g, "NUM")
+    .replace(/[^a-z\s]/g, " ")
+    .replace(/\s+/g, " ")
     .trim();
 
 function pickTheme(recent: string[]) {
-  // avoid using a theme whose keyword already appears in the recent texts
   const bag = normalize(recent.join(" "));
   const shuffled = [...THEMES].sort(() => Math.random() - 0.5);
   return shuffled.find((t) => !bag.includes(normalize(t))) || shuffled[0];
 }
 
+// NEW: crisp topic guardrails harvested from P5 syllabus
+const TOPIC_RULES: Record<Exclude<Topic, "any">, string> = {
+  "fractions-division":
+    "- P5 Fractions (division): divide a proper fraction by whole number, or whole/proper by proper; no calculator.",
+  percentage:
+    "- P5 Percentage: find the whole from a part & %; compute % increase/decrease; realistic contexts.",
+  ratio:
+    "- P5 Ratio: a:b or a:b:c with whole-number terms; equivalent ratios; divide a quantity in a given ratio; simplest form; relate ratio↔fraction.",
+  rate: "- P5 Rate: amount per 1 unit; find rate, total, or units given two of them.",
+  "area-triangle":
+    "- P5 Area: base/height concepts; area of triangle; composites of rectangles/squares/triangles.",
+  "volume-cube-cuboid":
+    "- P5 Volume: cm³/ℓ relationships; volume of cube/cuboid; liquid in rectangular tank; exclude cm³↔m³ conversion.",
+  angles:
+    "- P5 Angles: straight line, at a point, vertically opposite; find unknown angles (no extra constructions).",
+  triangles:
+    "- P5 Triangles: properties (isosceles/equilateral/right); angle-sum 180°; find unknown angles (no extra constructions).",
+  quadrilaterals:
+    "- P5 Parallelogram/Rhombus/Trapezium: properties; find unknown angles (no extra constructions).",
+};
+
+// Human-readable labels for the prompt
+const TOPIC_LABEL: Record<Topic, string> = {
+  any: "Any P5 topic",
+  "fractions-division": "Fractions (division)",
+  percentage: "Percentage",
+  ratio: "Ratio",
+  rate: "Rate",
+  "area-triangle": "Area of triangle",
+  "volume-cube-cuboid": "Volume of cube/cuboid",
+  angles: "Angles",
+  triangles: "Triangles",
+  quadrilaterals: "Parallelogram, Rhombus, Trapezium",
+};
+
 export async function POST(req: Request) {
   const supabase = getSupabase();
-  const { difficulty, opType } = Body.parse(await req.json().catch(() => ({})));
-
+  const { difficulty, opType, topic } = Body.parse(
+    await req.json().catch(() => ({}))
+  );
   const key = process.env.GOOGLE_API_KEY;
-  if (!key) {
+  if (!key)
     return NextResponse.json(
       { error: "GOOGLE_API_KEY missing" },
       { status: 500 }
     );
-  }
 
-  // 1) Fetch a handful of recent problems to steer diversity & de-dupe
+  // 1) Peek recent for diversity & de-dup
   const { data: recentData, error: recentErr } = await supabase
     .from("math_problem_sessions")
     .select("problem_text")
     .order("created_at", { ascending: false })
     .limit(10);
-
-  if (recentErr) {
+  if (recentErr)
     return NextResponse.json({ error: recentErr.message }, { status: 500 });
-  }
+
   const recentTexts = (recentData ?? []).map((r) => r.problem_text);
   const recentNorms = new Set(recentTexts.map(normalize));
   const theme = pickTheme(recentTexts);
 
-  // 2) Build op/difficulty rules
+  // 2) Difficulty + operation rules (kept from your version)
   const opText =
     opType === "any"
       ? "Use exactly one of: addition, subtraction, multiplication, or division."
@@ -107,15 +164,30 @@ export async function POST(req: Request) {
       : opType === "mul"
       ? "Operation must be multiplication."
       : "Operation must be division.";
-
-  const rules =
+  const diffText =
     difficulty === "easy"
       ? "- Single-step, numbers ≤ 100, integer answer."
       : difficulty === "medium"
       ? "- Two steps, numbers ≤ 500, integer answer."
       : "- 2–3 steps mixing operations, numbers ≤ 1000, integer answer.";
 
-  // extract some "banned" words from recent problems (very simple heuristic)
+  // 3) Curriculum guardrails (Primary 5 scope)
+  const topicText =
+    topic === "any"
+      ? [
+          TOPIC_RULES["fractions-division"],
+          TOPIC_RULES.percentage,
+          TOPIC_RULES.ratio,
+          TOPIC_RULES.rate,
+          TOPIC_RULES["area-triangle"],
+          TOPIC_RULES["volume-cube-cuboid"],
+          TOPIC_RULES.angles,
+          TOPIC_RULES.triangles,
+          TOPIC_RULES.quadrilaterals,
+        ].join("\n")
+      : TOPIC_RULES[topic];
+
+  // Extract simple “banned words” to avoid near repeats
   const banned = Array.from(
     new Set(
       recentTexts
@@ -124,77 +196,60 @@ export async function POST(req: Request) {
         .match(/\b[a-z]{4,}\b/g) ?? []
     )
   )
-    .slice(0, 40) // keep prompt compact
+    .slice(0, 40)
     .join(", ");
 
   const basePrompt = `
 Return ONLY JSON with keys: problem_text (string), final_answer (number), hint (string), steps (string[]).
-Primary 5 Singapore Math. Difficulty: ${difficulty.toUpperCase()}.
-Theme: ${theme}.
+
+Primary 5 Singapore Math. Topic focus: ${TOPIC_LABEL[topic]}.
+Stay strictly within Primary 5 scope for the selected topic:
+${topicText}
+
+Theme for the story: ${theme}.
 ${opText}
-${rules}
-- Keep the word problem to ≤ 2 sentences.
-- Use a scenario consistent with the theme.
+${diffText}
+- Keep the word problem to ≤ 2 sentences, realistic everyday contexts.
+- No calculator methods; integer final_answer only (no units).
+- Encourage model drawing or diagram thinking in hint/steps where relevant (bar model, base-height, angle facts).
 - Avoid using these words or an obviously similar scenario: ${
     banned || "(none)"
   }.
-- final_answer must be numeric only (no units).
-- steps should be a short step-by-step solution a student can follow.
 `;
 
   const genAI = new GoogleGenerativeAI(key);
   const model = genAI.getGenerativeModel({ model: "gemini-flash-latest" });
 
-  // 3) Try up to 3 times if we hit a near-duplicate
+  // 4) Try a few times to avoid duplicates
   const attempts = 3;
   let parsed: z.infer<typeof Problem> | null = null;
-
   for (let i = 0; i < attempts; i++) {
-    // Nudge the model each retry
     const extra =
       i === 0
         ? ""
-        : `\nRegenerate with a DIFFERENT scenario than before; do NOT reuse entities or phrasing.\n`;
-
+        : "\nRegenerate with a DIFFERENT scenario and wording than before.\n";
     const r = await model.generateContent({
       contents: [{ role: "user", parts: [{ text: basePrompt + extra }] }],
       generationConfig: {
         responseMimeType: "application/json",
-        temperature: 0.85, // ↑ more variety
+        temperature: 0.85,
         topP: 0.95,
         topK: 40,
-        // maxOutputTokens: 256, // optional
       },
     });
 
     const raw = unfence(r.response.text().trim());
-    let candidate: z.infer<typeof Problem>;
     try {
-      candidate = Problem.parse(JSON.parse(raw));
-    } catch {
-      // One more lenient try to parse if fenced or slightly malformed
-      try {
-        candidate = Problem.parse(JSON.parse(unfence(raw)));
-      } catch (e) {
-        if (i === attempts - 1) {
-          return NextResponse.json(
-            { error: "Invalid AI JSON", raw },
-            { status: 502 }
-          );
-        }
-        continue; // retry
+      const candidate = Problem.parse(JSON.parse(raw));
+      const norm = normalize(candidate.problem_text);
+      if (!recentNorms.has(norm)) {
+        parsed = candidate;
+        break;
       }
+    } catch {
+      // try again
     }
-
-    // de-dup against recent by normalized text
-    const norm = normalize(candidate.problem_text);
-    if (!recentNorms.has(norm)) {
-      parsed = candidate;
-      break;
-    }
-    // otherwise loop and try again
   }
-
   if (!parsed) {
     return NextResponse.json(
       { error: "Could not produce a sufficiently diverse problem." },
@@ -202,7 +257,7 @@ ${rules}
     );
   }
 
-  // 4) Save
+  // 5) Save
   const { data, error } = await supabase
     .from("math_problem_sessions")
     .insert({
@@ -211,20 +266,21 @@ ${rules}
       difficulty,
       op_type: opType === "any" ? null : opType,
       hint: parsed.hint ?? null,
-      solution_steps: parsed.steps ?? null, // jsonb
+      solution_steps: parsed.steps ?? null,
+      // optional: persist chosen topic
+      topic: topic === "any" ? null : topic,
     } as any)
     .select("id, hint, solution_steps")
     .single();
-
-  if (error) {
+  if (error)
     return NextResponse.json({ error: error.message }, { status: 500 });
-  }
 
   return NextResponse.json({
     sessionId: data.id,
     problem_text: parsed.problem_text,
     difficulty,
     opType,
+    topic,
     hint: data.hint,
     steps: Array.isArray(data.solution_steps) ? data.solution_steps : [],
   });

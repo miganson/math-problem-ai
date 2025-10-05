@@ -5,6 +5,17 @@ import { useEffect, useState } from "react";
 
 type Diff = "easy" | "medium" | "hard";
 type Op = "any" | "add" | "sub" | "mul" | "div";
+type Topic =
+  | "any"
+  | "fractions-division"
+  | "percentage"
+  | "ratio"
+  | "rate"
+  | "area-triangle"
+  | "volume-cube-cuboid"
+  | "angles"
+  | "triangles"
+  | "quadrilaterals";
 
 interface MathProblem {
   problem_text: string;
@@ -17,6 +28,7 @@ interface HistoryItem {
   difficulty: Diff | null;
   opType: Op | null;
   latest_correct: boolean | null;
+  topic?: Topic | null; // ⬅️ NEW (optional)
 }
 
 const diffLabel = (d: Diff) => d.charAt(0).toUpperCase() + d.slice(1);
@@ -27,13 +39,24 @@ const opLabel: Record<Op, string> = {
   mul: "Multiplication",
   div: "Division",
 };
-
 const opShort: Record<Op, string> = {
   any: "Any",
   add: "Add",
   sub: "Subtract",
   mul: "Multiply",
   div: "Divide",
+};
+const topicLabel: Record<Topic, string> = {
+  any: "Any P5 topic",
+  "fractions-division": "Fractions — division",
+  percentage: "Percentage",
+  ratio: "Ratio",
+  rate: "Rate",
+  "area-triangle": "Area of triangle",
+  "volume-cube-cuboid": "Volume: cube/cuboid",
+  angles: "Angles",
+  triangles: "Triangles",
+  quadrilaterals: "Parallelogram/Rhombus/Trapezium",
 };
 
 export default function Home() {
@@ -48,10 +71,12 @@ export default function Home() {
   // controls for generating
   const [difficulty, setDifficulty] = useState<Diff>("medium");
   const [opType, setOpType] = useState<Op>("any");
+  const [topic, setTopic] = useState<Topic>("any");
 
   // what the current card actually is
   const [displayDifficulty, setDisplayDifficulty] = useState<Diff | null>(null);
   const [displayOp, setDisplayOp] = useState<Op | null>(null);
+  const [displayTopic, setDisplayTopic] = useState<Topic | null>(null);
 
   // helpers
   const [hint, setHint] = useState<string | null>(null);
@@ -134,7 +159,7 @@ export default function Home() {
       const res = await fetch("/api/math-problem", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ difficulty, opType }),
+        body: JSON.stringify({ difficulty, opType, topic }), // ⬅️ send topic
       });
 
       const text = await res.text();
@@ -145,10 +170,13 @@ export default function Home() {
       setProblem({ problem_text: j.problem_text, final_answer: 0 });
       setHint(j.hint ?? null);
       setSteps(Array.isArray(j.steps) ? j.steps : []);
+
+      // lock what the server actually generated
       setDisplayDifficulty((j.difficulty as Diff) ?? difficulty);
       setDisplayOp((j.opType as Op) ?? opType);
+      setDisplayTopic((j.topic as Topic) ?? topic);
 
-      // new item appears on page 1; keep UX simple: jump to page 1
+      // new item appears on page 1; jump there
       await goToPage(1);
     } catch (e: any) {
       setIsCorrect(false);
@@ -181,7 +209,7 @@ export default function Home() {
       if (Array.isArray(j.steps)) setSteps(j.steps);
       if (j.hint) setHint(j.hint);
 
-      // stay on current page; still refresh it
+      // stay on current page; refresh it
       await fetchHistoryPage(page);
     } catch (e: any) {
       setIsCorrect(false);
@@ -199,6 +227,7 @@ export default function Home() {
 
   const bannerDiff = (displayDifficulty ?? difficulty) as Diff;
   const bannerOp = (displayOp ?? opType) as Op;
+  const bannerTopic = (displayTopic ?? topic) as Topic;
   const bannerPrefix = problem ? "This question:" : "Next question will be:";
 
   const fromIndex = (page - 1) * pageSize + 1;
@@ -232,7 +261,7 @@ export default function Home() {
           </div>
         </header>
 
-        {/* Top label describing difficulty + operation */}
+        {/* Top label describing difficulty + operation + topic */}
         <div className="mb-4 flex flex-wrap items-center justify-center gap-2 text-sm">
           <span className="text-gray-600">{bannerPrefix}</span>
           <span className="rounded-full bg-sky-50 px-2.5 py-1 font-medium text-sky-700">
@@ -240,6 +269,9 @@ export default function Home() {
           </span>
           <span className="rounded-full bg-indigo-50 px-2.5 py-1 font-medium text-indigo-700">
             Operation: {opLabel[bannerOp]}
+          </span>
+          <span className="rounded-full bg-emerald-50 px-2.5 py-1 font-medium text-emerald-700">
+            Topic: {topicLabel[bannerTopic]}
           </span>
         </div>
 
@@ -259,6 +291,8 @@ export default function Home() {
             </button>
           ))}
         </div>
+
+        {/* Responsive operation buttons (wrap & short labels on xs) */}
         <div className="mt-3 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2">
           {(["any", "add", "sub", "mul", "div"] as Op[]).map((o) => (
             <button
@@ -275,6 +309,31 @@ export default function Home() {
               <span className="hidden sm:inline">{opLabel[o]}</span>
             </button>
           ))}
+        </div>
+
+        {/* Topic select */}
+        <div className="mt-3">
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Select a Topic
+          </label>
+          <select
+            value={topic}
+            onChange={(e) => setTopic(e.target.value as Topic)}
+            className="w-full sm:w-auto rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm"
+          >
+            <option value="any">Any P5 topic</option>
+            <option value="fractions-division">Fractions — division</option>
+            <option value="percentage">Percentage</option>
+            <option value="ratio">Ratio</option>
+            <option value="rate">Rate</option>
+            <option value="area-triangle">Area of triangle</option>
+            <option value="volume-cube-cuboid">Volume: cube/cuboid</option>
+            <option value="angles">Angles</option>
+            <option value="triangles">Triangles</option>
+            <option value="quadrilaterals">
+              Parallelogram/Rhombus/Trapezium
+            </option>
+          </select>
         </div>
 
         <section className="mt-4 mb-6">
@@ -294,9 +353,14 @@ export default function Home() {
               <h2 className="text-base font-semibold text-gray-800">
                 {diffLabel((displayDifficulty ?? difficulty) as Diff)} Problem
               </h2>
-              <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-700">
-                {opLabel[(displayOp ?? opType) as Op]}
-              </span>
+              <div className="flex items-center gap-2">
+                <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-700">
+                  {opLabel[(displayOp ?? opType) as Op]}
+                </span>
+                <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-xs text-emerald-700">
+                  {topicLabel[(displayTopic ?? topic) as Topic]}
+                </span>
+              </div>
             </div>
 
             <p className="mt-2 rounded-lg bg-gray-50 p-4 text-lg leading-relaxed sm:text-xl">
@@ -370,73 +434,122 @@ export default function Home() {
           </section>
         )}
 
+        {/* Feedback */}
+        {feedback && (
+          <section
+            className={`rounded-2xl border p-5 shadow-sm sm:p-6 mt-4 ${
+              isCorrect
+                ? "border-emerald-200 bg-emerald-50"
+                : "border-amber-200 bg-amber-50"
+            }`}
+          >
+            <h3 className="mb-2 text-lg font-semibold">
+              {isCorrect ? "✅ Correct!" : "❌ Not quite right"}
+            </h3>
+            <p className="text-gray-800 whitespace-pre-line">{feedback}</p>
+          </section>
+        )}
+
         {/* History with pagination */}
-        <section className="mt-8">
-          <div className="mb-2 flex items-center justify-between">
-            <h4 className="text-sm font-semibold text-gray-700">History</h4>
-            <div className="text-xs text-gray-500">
-              Showing {total ? fromIndex : 0}-{toIndex} of {total}
+
+        {/* History with pagination */}
+        {/* History with pagination (full-bleed + wide on large screens) */}
+        <section className="mt-8 relative left-1/2 right-1/2 -ml-[50vw] -mr-[50vw] w-screen">
+          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+            <div className="mb-2 flex items-center justify-between">
+              <h4 className="text-sm font-semibold text-gray-700">History</h4>
+              <div className="text-xs text-gray-500">
+                Showing {total ? fromIndex : 0}-{toIndex} of {total}
+              </div>
             </div>
-          </div>
 
-          <ul className="divide-y divide-gray-100 overflow-hidden rounded-xl border">
-            {history.map((h) => (
-              <li
-                key={h.id}
-                className="flex items-start gap-3 bg-white px-4 py-3"
+            <div className="overflow-x-auto rounded-xl border bg-white">
+              <table className="w-full table-auto text-sm">
+                <thead className="bg-gray-50">
+                  <tr className="text-left text-gray-700">
+                    <th className="px-3 py-2 font-medium">When</th>
+                    <th className="px-3 py-2 font-medium">Diff</th>
+                    <th className="px-3 py-2 font-medium">Op</th>
+                    <th className="px-3 py-2 font-medium">Topic</th>
+                    <th className="px-3 py-2 font-medium">Result</th>
+                    <th className="px-3 py-2 font-medium w-full">Problem</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {history.map((h) => {
+                    const when = new Date(h.created_at).toLocaleString();
+                    const op = h.opType ?? "any";
+                    const topicText = (h as any).topic
+                      ? topicLabel[(h as any).topic]
+                      : "—";
+                    return (
+                      <tr key={h.id} className="align-top">
+                        <td className="px-3 py-2 text-gray-500 whitespace-nowrap">
+                          {when}
+                        </td>
+                        <td className="px-3 py-2">
+                          <span className="rounded bg-sky-50 px-2 py-0.5 text-[11px] text-sky-700">
+                            {h.difficulty ? diffLabel(h.difficulty) : "Medium"}
+                          </span>
+                        </td>
+                        <td className="px-3 py-2">
+                          <span className="rounded bg-indigo-50 px-2 py-0.5 text-[11px] text-indigo-700">
+                            {opLabel[op as Op]}
+                          </span>
+                        </td>
+                        <td className="px-3 py-2">
+                          <span className="rounded bg-emerald-50 px-2 py-0.5 text-[11px] text-emerald-700">
+                            {topicText}
+                          </span>
+                        </td>
+                        <td className="px-3 py-2">
+                          {h.latest_correct === null
+                            ? "—"
+                            : h.latest_correct
+                            ? "✅"
+                            : "❌"}
+                        </td>
+                        <td className="px-3 py-2">
+                          <div className="whitespace-normal break-words text-gray-800">
+                            {h.problem_text}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Pager */}
+            <div className="mt-3 flex items-center justify-between text-sm">
+              <button
+                onClick={() => goToPage(page - 1)}
+                disabled={!canPrev}
+                className={`rounded-lg border px-3 py-1.5 ${
+                  canPrev
+                    ? "bg-white hover:bg-gray-50"
+                    : "bg-gray-100 text-gray-400"
+                }`}
               >
-                <span className="w-5 text-center">
-                  {h.latest_correct === null
-                    ? "–"
-                    : h.latest_correct
-                    ? "✅"
-                    : "❌"}
-                </span>
-
-                <span className="rounded bg-gray-50 px-2 py-0.5 text-[11px] text-gray-700">
-                  {h.difficulty ?? "medium"}
-                </span>
-
-                <span className="rounded bg-gray-50 px-2 py-0.5 text-[11px] text-gray-700">
-                  {h.opType ?? "any"}
-                </span>
-
-                {/* let the text take remaining width and wrap */}
-                <span className="min-w-0 flex-1 text-sm text-gray-800 whitespace-normal break-words">
-                  {h.problem_text}
-                </span>
-              </li>
-            ))}
-          </ul>
-
-          {/* Pager */}
-          <div className="mt-3 flex items-center justify-between text-sm">
-            <button
-              onClick={() => goToPage(page - 1)}
-              disabled={!canPrev}
-              className={`rounded-lg border px-3 py-1.5 ${
-                canPrev
-                  ? "bg-white hover:bg-gray-50"
-                  : "bg-gray-100 text-gray-400"
-              }`}
-            >
-              ← Prev
-            </button>
-            <span className="text-gray-600">
-              Page <span className="font-semibold">{page}</span> of{" "}
-              <span className="font-semibold">{pageCount}</span>
-            </span>
-            <button
-              onClick={() => goToPage(page + 1)}
-              disabled={!canNext}
-              className={`rounded-lg border px-3 py-1.5 ${
-                canNext
-                  ? "bg-white hover:bg-gray-50"
-                  : "bg-gray-100 text-gray-400"
-              }`}
-            >
-              Next →
-            </button>
+                ← Prev
+              </button>
+              <span className="text-gray-600">
+                Page <span className="font-semibold">{page}</span> of{" "}
+                <span className="font-semibold">{pageCount}</span>
+              </span>
+              <button
+                onClick={() => goToPage(page + 1)}
+                disabled={!canNext}
+                className={`rounded-lg border px-3 py-1.5 ${
+                  canNext
+                    ? "bg-white hover:bg-gray-50"
+                    : "bg-gray-100 text-gray-400"
+                }`}
+              >
+                Next →
+              </button>
+            </div>
           </div>
         </section>
       </main>
