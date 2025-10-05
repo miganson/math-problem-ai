@@ -53,6 +53,8 @@ const unfence = (s: string) =>
 const normalize = (s: string) =>
   s
     .toLowerCase()
+    .normalize("NFKD") // optional: split accents
+    .replace(/[\u0300-\u036f]/g, "") // optional: drop diacritics
     .replace(/\d+/g, "NUM") // ignore exact numbers
     .replace(/[^a-z\s]/g, " ") // strip punctuation/non-letters (ASCII)
     .replace(/\s+/g, " ") // collapse spaces
