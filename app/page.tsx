@@ -1,3 +1,4 @@
+// app/page.tsx
 "use client";
 
 import { useState } from "react";
@@ -6,6 +7,7 @@ interface MathProblem {
   problem_text: string;
   final_answer: number;
 }
+type Diff = "easy" | "medium" | "hard";
 
 export default function Home() {
   const [problem, setProblem] = useState<MathProblem | null>(null);
@@ -14,6 +16,9 @@ export default function Home() {
   const [isLoading, setIsLoading] = useState(false);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [isCorrect, setIsCorrect] = useState<boolean | null>(null);
+  const [difficulty, setDifficulty] = useState<Diff>("medium");
+  const [pressingGen, setPressingGen] = useState(false);
+  const [pressingSubmit, setPressingSubmit] = useState(false);
 
   const generateProblem = async () => {
     setIsLoading(true);
@@ -21,11 +26,15 @@ export default function Home() {
     setIsCorrect(null);
     setUserAnswer("");
     try {
-      const res = await fetch("/api/math-problem", { method: "POST" });
+      const res = await fetch("/api/math-problem", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ difficulty }),
+      });
       const j = await res.json();
       if (!res.ok) throw new Error(j.error || "Failed to generate problem");
       setSessionId(j.sessionId);
-      setProblem({ problem_text: j.problem_text, final_answer: 0 }); 
+      setProblem({ problem_text: j.problem_text, final_answer: 0 });
     } catch (e: any) {
       setFeedback(`Error: ${e.message ?? "generate failed"}`);
       setIsCorrect(false);
@@ -61,7 +70,8 @@ export default function Home() {
     <div className="min-h-svh bg-gradient-to-b from-sky-50 via-white to-white text-gray-900 antialiased">
       <main className="mx-auto w-full max-w-xl px-4 py-8 sm:max-w-2xl sm:py-12">
         {/* Header */}
-        <header className="mb-6 sm:mb-8 text-center">
+
+        <header className="mb-6 text-center sm:mb-8">
           <div className="inline-flex items-center gap-2 rounded-full border border-sky-200 bg-white/70 px-3 py-1 text-xs font-medium text-sky-700 shadow-sm backdrop-blur">
             <span>🧮</span> <span>Practice Mode</span>
           </div>
@@ -74,12 +84,50 @@ export default function Home() {
           </p>
         </header>
 
+        {/* Difficulty selector */}
+        <div
+          role="radiogroup"
+          aria-label="Difficulty"
+          className="mb-4 grid grid-cols-3 gap-2"
+        >
+          {(["easy", "medium", "hard"] as Diff[]).map((d) => {
+            const selected = difficulty === d;
+            return (
+              <button
+                key={d}
+                type="button"
+                role="radio"
+                aria-checked={selected}
+                onClick={() => setDifficulty(d)}
+                className={`flex items-center justify-center gap-1.5 rounded-xl px-3 py-2 text-sm font-medium border shadow-sm
+                  ${
+                    selected
+                      ? "bg-sky-600 text-white border-sky-600 ring-2 ring-sky-300"
+                      : "bg-white text-gray-700 border-gray-200 hover:bg-gray-50"
+                  }`}
+              >
+                <span>{d[0].toUpperCase() + d.slice(1)}</span>
+              </button>
+            );
+          })}
+        </div>
+
         {/* Generate */}
         <section className="mb-6 sm:mb-8">
           <button
+            onPointerDown={() => {
+              setPressingGen(true);
+              setTimeout(() => setPressingGen(false), 140);
+            }}
             onClick={generateProblem}
             disabled={isLoading}
-            className="group relative w-full overflow-hidden rounded-xl bg-sky-600 px-4 py-3 text-base font-semibold text-white shadow-sm transition active:scale-[0.99] disabled:cursor-not-allowed disabled:bg-gray-300"
+            className={`group relative w-full overflow-hidden rounded-xl bg-sky-600 px-4 py-3 text-base font-semibold text-white shadow-sm transition
+                        focus:outline-none focus:ring-4 focus:ring-sky-200 disabled:cursor-not-allowed disabled:bg-gray-300
+                        ${
+                          pressingGen
+                            ? "translate-y-0.5 scale-[0.99] shadow-inner"
+                            : ""
+                        }`}
           >
             <span
               className={`inline-flex items-center justify-center gap-2 ${
@@ -92,23 +140,13 @@ export default function Home() {
                   Generating…
                 </>
               ) : (
-                <>
-                  <span className="transition-transform group-hover:-translate-y-0.5">
-                    ➕
-                  </span>
-                  Generate New Problem
-                </>
+                <>Generate New Problem</>
               )}
             </span>
           </button>
-          {sessionId && (
-            <p className="mt-2 text-center text-xs text-gray-500">
-              Session:{" "}
-              <span className="font-mono">{sessionId.slice(0, 8)}…</span>
-            </p>
-          )}
         </section>
 
+        {/* Problem + Answer */}
         {problem && (
           <section className="mb-6 rounded-2xl border border-gray-100 bg-white p-5 shadow-sm sm:p-6">
             <h2 className="text-base font-semibold text-gray-800">Problem</h2>
@@ -126,9 +164,9 @@ export default function Home() {
               <div className="flex w-full items-center gap-3">
                 <input
                   id="answer"
-                  type="number"
+                  type="text"
                   inputMode="decimal"
-                  step="any"
+                  pattern="[0-9,.]*"
                   value={userAnswer}
                   onChange={(e) => setUserAnswer(e.target.value)}
                   placeholder="e.g. 42"
@@ -137,8 +175,19 @@ export default function Home() {
                 />
                 <button
                   type="submit"
+                  onPointerDown={() => {
+                    setPressingSubmit(true);
+                    setTimeout(() => setPressingSubmit(false), 140);
+                  }}
                   disabled={!userAnswer || isLoading}
-                  className="inline-flex min-w-[7.5rem] items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700 active:scale-[0.99] disabled:cursor-not-allowed disabled:bg-gray-300 sm:text-base sm:py-3"
+                  className={`inline-flex min-w-[7.5rem] items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition
+                              hover:bg-emerald-700 focus:outline-none focus:ring-4 focus:ring-emerald-200
+                              disabled:cursor-not-allowed disabled:bg-gray-300 sm:text-base sm:py-3
+                              ${
+                                pressingSubmit
+                                  ? "translate-y-0.5 scale-[0.99] shadow-inner"
+                                  : ""
+                              }`}
                 >
                   {isLoading ? (
                     <>
@@ -146,19 +195,10 @@ export default function Home() {
                       Checking…
                     </>
                   ) : (
-                    <>
-                      <span>✅</span> Submit
-                    </>
+                    <>Submit</>
                   )}
                 </button>
               </div>
-              <p className="text-xs text-gray-500">
-                Tip: Press{" "}
-                <kbd className="rounded border bg-gray-50 px-1.5 py-0.5 font-mono text-[10px]">
-                  Enter
-                </kbd>{" "}
-                to submit.
-              </p>
             </form>
           </section>
         )}
@@ -183,7 +223,7 @@ export default function Home() {
                 onClick={generateProblem}
                 className="inline-flex flex-1 items-center justify-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 transition hover:bg-gray-50 sm:text-base"
               >
-                🔁 Try another
+                Try another
               </button>
               {problem && (
                 <button
@@ -192,9 +232,9 @@ export default function Home() {
                     setFeedback("");
                     setIsCorrect(null);
                   }}
-                  className="inline-flex flex-1 items-center justify-center gap-2 rounded-lg bg-gray-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-black sm:text-base"
+                  className="inline-flex flex-1 items-center justify-center gap-2 rounded-lg bg-sky-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-black sm:text-base"
                 >
-                  ✏️ Change answer
+                  Change answer
                 </button>
               )}
             </div>
