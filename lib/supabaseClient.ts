@@ -1,60 +1,71 @@
-import { createClient } from '@supabase/supabase-js'
+// lib/supabaseClient.ts
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+let _client: SupabaseClient | null = null;
 
-if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error('Missing Supabase environment variables')
+/**
+ * Lazily create the client so we don't throw during module import at build time.
+ * Throws only when a request actually runs and envs are missing.
+ */
+export function getSupabase(): SupabaseClient {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+  if (!url || !anon) {
+    throw new Error(
+      "Supabase env vars missing. Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY."
+    );
+  }
+  if (!_client) _client = createClient(url, anon);
+  return _client;
 }
-
-export const supabase = createClient(supabaseUrl, supabaseAnonKey)
 
 export type Database = {
   public: {
     Tables: {
       math_problem_sessions: {
         Row: {
-          id: string
-          created_at: string
-          problem_text: string
-          correct_answer: number
-        }
+          id: string;
+          created_at: string;
+          problem_text: string;
+          correct_answer: number;
+        };
         Insert: {
-          id?: string
-          created_at?: string
-          problem_text: string
-          correct_answer: number
-        }
+          id?: string;
+          created_at?: string;
+          problem_text: string;
+          correct_answer: number;
+        };
         Update: {
-          id?: string
-          created_at?: string
-          problem_text?: string
-          correct_answer?: number
-        }
-      }
+          id?: string;
+          created_at?: string;
+          problem_text?: string;
+          correct_answer?: number;
+        };
+      };
       math_problem_submissions: {
         Row: {
-          id: string
-          session_id: string
-          user_answer: number
-          is_correct: boolean
-          feedback_text: string
-        }
+          id: string;
+          session_id: string;
+          user_answer: number;
+          is_correct: boolean;
+          feedback_text: string;
+        };
         Insert: {
-          id?: string
-          session_id: string
-          user_answer: number
-          is_correct: boolean
-          feedback_text: string
-        }
+          id?: string;
+          session_id: string;
+          user_answer: number;
+          is_correct: boolean;
+          feedback_text: string;
+        };
         Update: {
-          id?: string
-          session_id?: string
-          user_answer?: number
-          is_correct?: boolean
-          feedback_text?: string
-        }
-      }
-    }
-  }
-}
+          id?: string;
+          session_id?: string;
+          user_answer?: number;
+          is_correct?: boolean;
+          feedback_text?: string;
+        };
+      };
+    };
+  };
+};

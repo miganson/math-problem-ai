@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { GoogleGenerativeAI } from "@google/generative-ai";
-import { supabase } from "../../../../lib/supabaseClient";
+import { getSupabase } from "../../../../lib/supabaseClient";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -17,6 +17,7 @@ function toNum(v: unknown) {
 }
 
 export async function POST(req: Request) {
+  const supabase = getSupabase();
   try {
     const { sessionId, userAnswer } = Body.parse(await req.json());
 

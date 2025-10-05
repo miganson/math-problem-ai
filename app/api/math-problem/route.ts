@@ -2,7 +2,7 @@
 import { NextResponse } from "next/server";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { z } from "zod";
-import { supabase } from "../../../lib/supabaseClient";
+import { getSupabase } from "../../../lib/supabaseClient";
 
 export const runtime = "nodejs";
 
@@ -68,6 +68,7 @@ function pickTheme(recent: string[]) {
 }
 
 export async function POST(req: Request) {
+  const supabase = getSupabase();
   const { difficulty, opType } = Body.parse(await req.json().catch(() => ({})));
 
   const key = process.env.GOOGLE_API_KEY;

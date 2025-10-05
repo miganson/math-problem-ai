@@ -1,12 +1,13 @@
 // app/api/math-problem/history/route.ts
 import { NextResponse } from "next/server";
-import { supabase } from "../../../../lib/supabaseClient";
+import { getSupabase } from "../../../../lib/supabaseClient";
 
 export const runtime = "nodejs";
 
 const LAST_N_FOR_SCORE = 100;
 
 export async function GET(req: Request) {
+  const supabase = getSupabase();
   const url = new URL(req.url);
   const page = Math.max(1, Number(url.searchParams.get("page") || 1));
   const pageSize = Math.min(
