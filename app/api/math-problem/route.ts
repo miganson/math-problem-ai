@@ -54,7 +54,7 @@ const normalize = (s: string) =>
   s
     .toLowerCase()
     .replace(/\d+/g, "NUM") // ignore exact numbers
-    .replace(/[^\p{L}\s]/gu, " ") // strip punctuation
+    .replace(/[^a-z\s]/g, " ") // strip punctuation/non-letters (ASCII)
     .replace(/\s+/g, " ") // collapse spaces
     .trim();
 
