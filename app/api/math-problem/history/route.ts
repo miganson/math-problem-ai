@@ -3,6 +3,9 @@ import { NextResponse } from "next/server";
 import { getSupabase } from "../../../../lib/supabaseClient";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";   // ⬅️ prevent prerender
+export const revalidate = 0;              // ⬅️ no ISR
+export const fetchCache = "force-no-store";
 
 const LAST_N_FOR_SCORE = 100;
 

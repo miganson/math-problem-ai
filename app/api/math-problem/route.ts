@@ -5,6 +5,9 @@ import { z } from "zod";
 import { getSupabase } from "../../../lib/supabaseClient";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic"; // ⬅️ add
+export const revalidate = 0;
+export const fetchCache = "force-no-store";
 
 const Body = z.object({
   difficulty: z.enum(["easy", "medium", "hard"]).default("medium"),
