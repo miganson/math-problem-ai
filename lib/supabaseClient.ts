@@ -1,12 +1,7 @@
-// lib/supabaseClient.ts
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
 let _client: SupabaseClient | null = null;
 
-/**
- * Lazily create the client so we don't throw during module import at build time.
- * Throws only when a request actually runs and envs are missing.
- */
 export function getSupabase(): SupabaseClient {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;

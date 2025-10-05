@@ -23,7 +23,6 @@ export async function POST(req: Request) {
   try {
     const { sessionId, userAnswer } = Body.parse(await req.json());
 
-    // 1) Load session
     const { data: s, error } = await supabase
       .from("math_problem_sessions")
       .select(
@@ -39,7 +38,6 @@ export async function POST(req: Request) {
       );
     }
 
-    // 2) Validate/compare answer
     const userNum = toNum(userAnswer);
     if (!Number.isFinite(userNum)) {
       return NextResponse.json(
@@ -50,7 +48,6 @@ export async function POST(req: Request) {
     const correct = Number(s.correct_answer);
     const is_correct = Math.abs(userNum - correct) < 1e-9;
 
-    // 3) Feedback (Gemini best-effort, with fallback)
     let feedback = is_correct
       ? "Great job — that's correct!"
       : "Good try! Re-check your arithmetic and give it another go.";
@@ -72,11 +69,9 @@ Write friendly feedback in <=3 sentences. If wrong, hint the key step. Return pl
         if (txt) feedback = txt;
       } catch (gerr: any) {
         console.error("Gemini feedback failed:", gerr?.message || gerr);
-        // keep fallback feedback
       }
     }
 
-    // 4) Persist submission
     const { error: insErr } = await supabase
       .from("math_problem_submissions")
       .insert({
@@ -94,7 +89,6 @@ Write friendly feedback in <=3 sentences. If wrong, hint the key step. Return pl
       );
     }
 
-    // 5) Normalize steps (supports jsonb or text)
     let steps: string[] = [];
     if (Array.isArray(s.solution_steps)) steps = s.solution_steps as string[];
     else if (typeof s.solution_steps === "string") {

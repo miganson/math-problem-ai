@@ -1,4 +1,3 @@
-// app/page.tsx
 "use client";
 
 import { useEffect, useState } from "react";
@@ -28,7 +27,7 @@ interface HistoryItem {
   difficulty: Diff | null;
   opType: Op | null;
   latest_correct: boolean | null;
-  topic?: Topic | null; // ⬅️ NEW (optional)
+  topic?: Topic | null;
 }
 
 const diffLabel = (d: Diff) => d.charAt(0).toUpperCase() + d.slice(1);
@@ -60,7 +59,6 @@ const topicLabel: Record<Topic, string> = {
 };
 
 export default function Home() {
-  // UI state
   const [problem, setProblem] = useState<MathProblem | null>(null);
   const [userAnswer, setUserAnswer] = useState("");
   const [feedback, setFeedback] = useState("");
@@ -68,30 +66,25 @@ export default function Home() {
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [isCorrect, setIsCorrect] = useState<boolean | null>(null);
 
-  // controls for generating
   const [difficulty, setDifficulty] = useState<Diff>("medium");
   const [opType, setOpType] = useState<Op>("any");
   const [topic, setTopic] = useState<Topic>("any");
 
-  // what the current card actually is
   const [displayDifficulty, setDisplayDifficulty] = useState<Diff | null>(null);
   const [displayOp, setDisplayOp] = useState<Op | null>(null);
   const [displayTopic, setDisplayTopic] = useState<Topic | null>(null);
 
-  // helpers
   const [hint, setHint] = useState<string | null>(null);
   const [steps, setSteps] = useState<string[]>([]);
   const [showHint, setShowHint] = useState(false);
   const [showSteps, setShowSteps] = useState(false);
 
-  // history + score
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [score, setScore] = useState<{ correct: number; total: number }>({
     correct: 0,
     total: 0,
   });
 
-  // pagination state
   const [page, setPage] = useState(1);
   const [pageSize] = useState(10);
   const [total, setTotal] = useState(0);
@@ -99,7 +92,6 @@ export default function Home() {
   const canPrev = page > 1;
   const canNext = page < pageCount;
 
-  // ---------- utils ----------
   const safeParseJson = (status: number, bodyText: string) => {
     try {
       return bodyText ? JSON.parse(bodyText) : {};
@@ -140,13 +132,11 @@ export default function Home() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // when page changes via UI
   const goToPage = async (p: number) => {
     setPage(p);
     await fetchHistoryPage(p);
   };
 
-  // ---------- actions ----------
   const generateProblem = async () => {
     setIsLoading(true);
     setFeedback("");
@@ -159,7 +149,7 @@ export default function Home() {
       const res = await fetch("/api/math-problem", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ difficulty, opType, topic }), // ⬅️ send topic
+        body: JSON.stringify({ difficulty, opType, topic }),
       });
 
       const text = await res.text();
@@ -171,12 +161,10 @@ export default function Home() {
       setHint(j.hint ?? null);
       setSteps(Array.isArray(j.steps) ? j.steps : []);
 
-      // lock what the server actually generated
       setDisplayDifficulty((j.difficulty as Diff) ?? difficulty);
       setDisplayOp((j.opType as Op) ?? opType);
       setDisplayTopic((j.topic as Topic) ?? topic);
 
-      // new item appears on page 1; jump there
       await goToPage(1);
     } catch (e: any) {
       setIsCorrect(false);
@@ -209,7 +197,6 @@ export default function Home() {
       if (Array.isArray(j.steps)) setSteps(j.steps);
       if (j.hint) setHint(j.hint);
 
-      // stay on current page; refresh it
       await fetchHistoryPage(page);
     } catch (e: any) {
       setIsCorrect(false);
@@ -219,7 +206,6 @@ export default function Home() {
     }
   };
 
-  // ---------- render ----------
   const { correct, total: totalAnswered } = score;
   const pct = totalAnswered ? Math.round((correct / totalAnswered) * 100) : 0;
   const color =

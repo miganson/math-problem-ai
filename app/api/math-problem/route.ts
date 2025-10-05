@@ -1,4 +1,3 @@
-// app/api/math-problem/route.ts
 import { NextResponse } from "next/server";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { z } from "zod";
@@ -11,15 +10,15 @@ export const fetchCache = "force-no-store";
 
 type Topic =
   | "any"
-  | "fractions-division" // P5 Fractions: division without calculator
-  | "percentage" // P5 Percentage: whole from part; % inc/dec
-  | "ratio" // P5 Ratio: a:b, a:b:c, equivalent, divide in ratio
-  | "rate" // P5 Rate
-  | "area-triangle" // P5 Area of triangle / composites
-  | "volume-cube-cuboid" // P5 Volume relationships
-  | "angles" // P5 angles at point/line/vertically opposite
-  | "triangles" // P5 properties & angle sum
-  | "quadrilaterals"; // P5 parallelogram, rhombus, trapezium
+  | "fractions-division" 
+  | "percentage" 
+  | "ratio" 
+  | "rate" 
+  | "area-triangle" 
+  | "volume-cube-cuboid"
+  | "angles" 
+  | "triangles" 
+  | "quadrilaterals";
 
 const Body = z.object({
   difficulty: z.enum(["easy", "medium", "hard"]).default("medium"),
@@ -93,7 +92,6 @@ function pickTheme(recent: string[]) {
   return shuffled.find((t) => !bag.includes(normalize(t))) || shuffled[0];
 }
 
-// NEW: crisp topic guardrails harvested from P5 syllabus
 const TOPIC_RULES: Record<Exclude<Topic, "any">, string> = {
   "fractions-division":
     "- P5 Fractions (division): divide a proper fraction by whole number, or whole/proper by proper; no calculator.",
@@ -114,7 +112,6 @@ const TOPIC_RULES: Record<Exclude<Topic, "any">, string> = {
     "- P5 Parallelogram/Rhombus/Trapezium: properties; find unknown angles (no extra constructions).",
 };
 
-// Human-readable labels for the prompt
 const TOPIC_LABEL: Record<Topic, string> = {
   any: "Any P5 topic",
   "fractions-division": "Fractions (division)",
@@ -140,7 +137,6 @@ export async function POST(req: Request) {
       { status: 500 }
     );
 
-  // 1) Peek recent for diversity & de-dup
   const { data: recentData, error: recentErr } = await supabase
     .from("math_problem_sessions")
     .select("problem_text")
@@ -153,7 +149,6 @@ export async function POST(req: Request) {
   const recentNorms = new Set(recentTexts.map(normalize));
   const theme = pickTheme(recentTexts);
 
-  // 2) Difficulty + operation rules (kept from your version)
   const opText =
     opType === "any"
       ? "Use exactly one of: addition, subtraction, multiplication, or division."
@@ -171,7 +166,6 @@ export async function POST(req: Request) {
       ? "- Two steps, numbers ≤ 500, integer answer."
       : "- 2–3 steps mixing operations, numbers ≤ 1000, integer answer.";
 
-  // 3) Curriculum guardrails (Primary 5 scope)
   const topicText =
     topic === "any"
       ? [
@@ -187,7 +181,6 @@ export async function POST(req: Request) {
         ].join("\n")
       : TOPIC_RULES[topic];
 
-  // Extract simple “banned words” to avoid near repeats
   const banned = Array.from(
     new Set(
       recentTexts
@@ -220,7 +213,6 @@ ${diffText}
   const genAI = new GoogleGenerativeAI(key);
   const model = genAI.getGenerativeModel({ model: "gemini-flash-latest" });
 
-  // 4) Try a few times to avoid duplicates
   const attempts = 3;
   let parsed: z.infer<typeof Problem> | null = null;
   for (let i = 0; i < attempts; i++) {
@@ -247,7 +239,6 @@ ${diffText}
         break;
       }
     } catch {
-      // try again
     }
   }
   if (!parsed) {
@@ -257,7 +248,6 @@ ${diffText}
     );
   }
 
-  // 5) Save
   const { data, error } = await supabase
     .from("math_problem_sessions")
     .insert({
@@ -267,7 +257,6 @@ ${diffText}
       op_type: opType === "any" ? null : opType,
       hint: parsed.hint ?? null,
       solution_steps: parsed.steps ?? null,
-      // optional: persist chosen topic
       topic: topic === "any" ? null : topic,
     } as any)
     .select("id, hint, solution_steps")

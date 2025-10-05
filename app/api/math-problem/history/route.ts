@@ -1,10 +1,9 @@
-// app/api/math-problem/history/route.ts
 import { NextResponse } from "next/server";
 import { getSupabase } from "../../../../lib/supabaseClient";
 
 export const runtime = "nodejs";
-export const dynamic = "force-dynamic"; // ⬅️ prevent prerender
-export const revalidate = 0; // ⬅️ no ISR
+export const dynamic = "force-dynamic";
+export const revalidate = 0; 
 export const fetchCache = "force-no-store";
 
 const LAST_N_FOR_SCORE = 100;
@@ -21,7 +20,6 @@ export async function GET(req: Request) {
   const from = (page - 1) * pageSize;
   const to = from + pageSize - 1;
 
-  // Page of sessions (with total count)
   const { data, error, count } = await supabase
     .from("math_problem_sessions")
     .select(
@@ -55,7 +53,6 @@ export async function GET(req: Request) {
     };
   });
 
-  // Keep your score stable: compute it over the latest 100 sessions (not just the page)
   const { data: scoreData, error: scoreErr } = await supabase
     .from("math_problem_sessions")
     .select("id, math_problem_submissions ( is_correct, created_at )")
