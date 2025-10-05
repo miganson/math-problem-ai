@@ -154,6 +154,12 @@ When submitting your assessment, provide:
 
 - GET /api/math-problem/history returns items, total, pageCount, plus an accuracy score computed over the latest 100 sessions (not just the current page).
 
+**Supabase Credentials**
+```
+NEXT_PUBLIC_SUPABASE_URL=https://dwnwegbssgedezfyhzly.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=sb_publishable_eA7ugXc8slv27gZ5Hkh8TQ_tyhW_NPD
+```
+
 ## Additional Features (Optional)
 
 If you have time, consider adding:
